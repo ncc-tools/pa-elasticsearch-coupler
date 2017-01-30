@@ -1,0 +1,243 @@
+{
+  "mappings": {
+    "testrun": {
+      "properties": {
+        "browserUri": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "dataStartDuration": {
+          "type": "float"
+        },
+        "domLoad": {
+          "type": "float"
+        },
+        "downloadDuration": {
+          "type": "float"
+        },
+        "jobUri": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "jobTemplateUri": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "jobTemplateName": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "objectCount": {
+          "type": "long"
+        },
+        "objectsUri": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "onLoad": {
+          "type": "float"
+        },
+        "pageSize": {
+          "type": "long"
+        },
+        "pageTitle": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "ranAt": {
+          "type": "date"
+        },
+        "renderStart": {
+          "type": "float"
+        },
+        "resultCode": {
+          "type": "long"
+        },
+        "severity": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "speedIndex": {
+          "type": "long"
+        },
+        "sref": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "url": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "visuallyComplete": {
+          "type": "long"
+        }
+      }
+    },
+    "pageobject": {
+      "_parent": {
+        "type": "testrun"
+      },
+      "properties": {
+        "url": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "mimeType": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "result": {
+          "type": "long"
+        },
+        "requestHeaderSize": {
+          "type": "long"
+        },
+        "responseHeaderSize": {
+          "type": "long"
+        },
+        "transmittedSize": {
+          "type": "long"
+        },
+        "uncompressedSize": {
+          "type": "long"
+        },
+        "offsetDuration": {
+          "type": "float"
+        },
+        "blockDuration": {
+          "type": "float"
+        },
+        "dnsDuration": {
+          "type": "float"
+        },
+        "connectDuration": {
+          "type": "float"
+        },
+        "sslDuration": {
+          "type": "float"
+        },
+        "sendDuration": {
+          "type": "float"
+        },
+        "dataStartDuration": {
+          "type": "float"
+        },
+        "receiveTimeDuration": {
+          "type": "float"
+        },
+        "cacheDuration": {
+          "type": "float"
+        },
+        "networkDuration": {
+          "type": "float"
+        },
+        "ttfbDuration": {
+          "type": "float"
+        },
+        "downloadDuration": {
+          "type": "float"
+        },
+        "responseBodyChecksum": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "sref": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "testRunUri": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "company": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "category": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
