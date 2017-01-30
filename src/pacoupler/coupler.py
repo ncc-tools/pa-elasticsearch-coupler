@@ -79,6 +79,8 @@ class Coupler:
         pageobject['ranAt'] = testrun['ranAt']
         pageobject['jobTemplateUri'] = jobtemplate['sref']
         pageobject['jobTemplateName'] = jobtemplate['name']
+        pageobject['parentUrl'] = testrun['url']
+        pageobject['parentPageTitle'] = testrun['pageTitle']
         try:
             domain_info = self.tagdb.get_url_info(pageobject['url'])
             if len(domain_info) > 0:
