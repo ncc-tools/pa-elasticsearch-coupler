@@ -1,0 +1,9 @@
+venv
+.vscode
+__pycache__
+config.ini
+config-aws.ini
+config-local.ini
+*.egg-info
+*.pyc
+.DS_Store
