@@ -32,5 +32,5 @@ instructions to configure access to your services.
 Add a crontab entry to run every minute (or less frequently if you want) like so:
 
 ```
-* * * * * /<path-to-venv>/bin/python3 /<path-to-venv>/bin/pa-es-coupler.py -c <path-to-config>/config.ini
+* * * * * /<path-to-venv>/bin/python3 /<path-to-venv>/bin/pa-es-coupler.py --config <path-to-config>/config.ini
 ```
