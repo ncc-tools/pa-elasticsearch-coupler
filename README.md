@@ -12,9 +12,10 @@ The base system needs to have Python3.5+ installed. Pyvenv is recommended.
 Create your venv somewhere like so:
 
 ```
-pyvenv venv
+python3 -m venv venv
 source venv/bin/activate
 ```
+(This does not work with the fish shell).
 
 Change to the coupler's folder. Then install it like so:
 
