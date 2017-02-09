@@ -2,20 +2,20 @@
 
 """NCC Performance Analyser API to ElasticSearch coupler"""
 
-import os
-from setuptools import setup, find_packages
-from pip.req import parse_requirements
-
-reqs_path = os.path.dirname(os.path.realpath(__file__)) + '/requirements.txt'
-install_reqs = parse_requirements(reqs_path, session=False)
-requires = [str(ir.req) for ir in install_reqs]
+from setuptools import setup
 
 setup(
-    name='pacoupler',
+    name='ncc_pa_elasticsearch',
+    version='0.0.1',
     description='PA to ElasticSearch coupler',
     author='NCC Group',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
+    packages=['pa_elasticsearch'],
     scripts=['bin/pa-es-coupler.py'],
-    install_requires=requires
+    install_requires=[
+        'elasticsearch==5.1.0',
+        'filelock==2.0.7',
+        'urllib3==1.19.1',
+        'ncc_paapi==0.0.3'
+    ],
+    url='https://github.com/ncc-tools/pa-elasticsearch-coupler'
 )

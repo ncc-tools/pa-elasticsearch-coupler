@@ -7,3 +7,5 @@ config-local.ini
 *.egg-info
 *.pyc
 .DS_Store
+.cache
+dist

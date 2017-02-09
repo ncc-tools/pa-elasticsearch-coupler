@@ -1,3 +1,7 @@
+"""
+Reads NCC Performance Analyser data and indexes it in ElasticSearch
+"""
+
 #    Copyright 2017 NCC Group plc
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,34 +17,30 @@
 #    limitations under the License.
 
 from configparser import ConfigParser
+import logging
+import os.path
 import elasticsearch
 from elasticsearch import Elasticsearch
-import logging
 import filelock
+from paapi import PaAuth, PaApi
 
-from .paapi import PaApi
 from .tagdb import NCCTagDB
 
 class Coupler:
     """
     Imports data from the PA API into an ElasticSearch database
     """
-    es = None
+    elasticsearch = None
     paapi = None
     logfile = None
     loglevel = None
     lockfile = None
 
-    def _sref_to_id(self, obj):
-        """
-        Converts a PA sref to only the numerical ID part.
-        """
-        return int(obj['sref'].split('/')[1])
-
     def __init__(self, conf_path, log=None, loglevel=None, lockfile=None):
         config = ConfigParser()
+        if not os.path.isfile(conf_path):
+            raise Exception("Couldn't open configuration file '%s'" % (conf_path,))
         config.read(conf_path)
-
         es_hosts = config['elasticsearch']['hosts'].split(',')
 
         if log is None:
@@ -59,35 +59,38 @@ class Coupler:
         try:
             es_username = config['elasticsearch']['username']
             es_password = config['elasticsearch']['password']
-            self.es = Elasticsearch(es_hosts, http_auth=(es_username, es_password), verify_certs=False)
+            self.elasticsearch = Elasticsearch(
+                es_hosts, http_auth=(es_username, es_password), verify_certs=False)
         except KeyError:
-            self.es = Elasticsearch(es_hosts)
+            self.elasticsearch = Elasticsearch(es_hosts)
 
-        self.paapi = PaApi( base_url = config['pa']['endpoint'],
-                            username = config['pa']['username'],
-                            password = config['pa']['password'],
-                            auth = config['pa']['basic_auth'],
-                            realm = config['pa']['realm'] )
+        auth = PaAuth(username=config['pa']['username'],
+                      password=config['pa']['password'],
+                      basic_auth=config['pa']['basic_auth'])
+        self.paapi = PaApi(auth, config['pa']['realm'])
 
         self.tagdb = NCCTagDB()
 
     def _process_jobtemplate_testruns(self, jobtemplate, last_update):
-        jt_id = self._sref_to_id(jobtemplate)
-        testruns = self.paapi.get_testruns_for_jobtemplate(jt_id, last_update)
-        logging.info('Importing %d testruns from Jobtemplate %d' % (len(testruns), jt_id))
-        for testrun in testruns: self._process_testrun_pageobjects(testrun, jobtemplate)
+        testruns = self.paapi.get_testruns_for_jobtemplate(jobtemplate['sref'], last_update)
+        logging.info('Importing %d testruns from Jobtemplate %d',
+                     len(testruns),
+                     jobtemplate['sref'])
+        for testrun in testruns:
+            self._process_testrun_pageobjects(testrun, jobtemplate)
 
     def _process_testrun_pageobjects(self, testrun, jobtemplate):
-        tr_id = self._sref_to_id(testrun)
         testrun['jobTemplateUri'] = jobtemplate['sref']
         testrun['jobTemplateName'] = jobtemplate['name']
-        self.es.index(index='pa-testruns', doc_type='testrun', id=tr_id, body=testrun)
-
-        pageobjects = self.paapi.get_pageobjects_for_testrun(tr_id)
-        for pageobject in pageobjects: self._process_pageobject(pageobject, testrun, jobtemplate)
+        self.elasticsearch.index(index='pa-testruns',
+                                 doc_type='testrun',
+                                 id=testrun['sref'],
+                                 body=testrun)
+        pageobjects = self.paapi.get_pageobjects_for_testrun(testrun['sref'])
+        for pageobject in pageobjects:
+            self._process_pageobject(pageobject, testrun, jobtemplate)
 
     def _process_pageobject(self, pageobject, testrun, jobtemplate):
-        po_id = self._sref_to_id(pageobject)
         pageobject['company'] = 'Unknown'
         pageobject['category'] = 'None'
         pageobject['ranAt'] = testrun['ranAt']
@@ -104,17 +107,24 @@ class Coupler:
                 )
                 pageobject['company'] = company_info[0]['name']
                 pageobject['category'] = company_info[0]['category']
-        except Exception as e:
-            logging.warning("Failed to retrieve 3rd party info for '%s'" % (pageobject['url'],))
-        self.es.index(index='pa-objects', doc_type='pageobject', id=po_id, body=pageobject)
+        except Exception as error:
+            logging.warning("Failed to retrieve 3rd party info for '%s'", pageobject['url'])
+        self.elasticsearch.index(index='pa-objects',
+                                 doc_type='pageobject',
+                                 id=pageobject['sref'],
+                                 body=pageobject)
 
-    def index(self, force_reindex):
+    def _index(self, force_reindex):
         last_update = None
         if force_reindex is False:
             try:
-                results = self.es.search(index='pa', doc_type='testrun', sort='ranAt:desc', size=1)
+                results = self.elasticsearch.search(index='pa',
+                                                    doc_type='testrun',
+                                                    sort='ranAt:desc',
+                                                    size=1)
                 if len(results['hits']['hits']) > 0:
-                    last_update = results['hits']['hits'][0]['_source']['ranAt'].replace('+00:00', 'Z')
+                    last_index = results['hits']['hits'][0]
+                    last_update = last_index['_source']['ranAt'].replace('+00:00', 'Z')
                     logging.info("Importing new data from PA")
             except elasticsearch.exceptions.NotFoundError:
                 logging.info("No existing data found. Fully indexing from PA")
@@ -122,22 +132,21 @@ class Coupler:
         else:
             logging.info("Fully indexing data from PA")
 
-        self.paapi.authenticate()
-        logging.info("Authenticated with PA API")
         jobtemplates = self.paapi.get_all_jobtemplates()
-        for jobtemplate in jobtemplates: self._process_jobtemplate_testruns(jobtemplate, last_update)
+        for jobtemplate in jobtemplates:
+            self._process_jobtemplate_testruns(jobtemplate, last_update)
 
     def run(self, force_reindex=False):
         """
         Runs the import as configured.
         """
-        log_format='[%(asctime)s] %(levelname)s: %(message)s'
+        log_format = '[%(asctime)s] %(levelname)s: %(message)s'
         logging.basicConfig(filename=self.logfile, level=self.loglevel, format=log_format)
 
         lock = filelock.FileLock(self.lockfile, timeout=5)
         try:
             with lock:
-                self.index(force_reindex)
+                self._index(force_reindex)
         except filelock.Timeout:
             logging.critical("Failed to acquire the lock file. Is a process already running?")
             return 2

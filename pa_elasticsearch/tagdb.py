@@ -1,3 +1,7 @@
+"""
+Abstracts access to the Tag DB
+"""
+
 #    Copyright 2017 NCC Group plc
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +16,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import urllib3
-from urllib.parse import urlparse, quote
 import json
+from urllib.parse import urlparse, quote
+import urllib3
 
 # Suppress custom SSL certificates warning. Otherwise they're printed once per endpoint call.
 urllib3.disable_warnings()

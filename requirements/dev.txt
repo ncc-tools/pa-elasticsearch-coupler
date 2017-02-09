@@ -1,0 +1,5 @@
+-r release.txt
+pytest==3.0.6
+pylint==1.6.5
+pep8==1.7.0
+flake8==3.3.0
