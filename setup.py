@@ -11,6 +11,7 @@ setup(
     author='NCC Group',
     packages=['pa_elasticsearch'],
     scripts=['bin/pa-es-coupler.py'],
+    license="Apache License 2.0",
     install_requires=[
         'elasticsearch==5.1.0',
         'filelock==2.0.7',
