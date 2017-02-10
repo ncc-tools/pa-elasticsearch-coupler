@@ -20,9 +20,11 @@ from configparser import ConfigParser
 import datetime
 import logging
 import os.path
+import signal
+import sys
+import time
 import elasticsearch
 from elasticsearch import Elasticsearch
-import filelock
 from paapi import PaAuth, PaApi, ApiQueryError
 
 from .tagdb import NCCTagDB
@@ -31,34 +33,43 @@ class Coupler:
     """
     Imports data from the PA API into an ElasticSearch database
     """
+    conf_path = None
     elasticsearch = None
     paapi = None
     logfile = None
     loglevel = None
-    lockfile = None
+    poll_period = 600 # Default polling period is 10min
     jobtemplates_whitelist = []
     jobtemplates_since = None
+    running = True
+    polling = False
 
-    def __init__(self, conf_path, log=None, loglevel=None, lockfile=None):
+    def __init__(self, conf_path):
+        self.conf_path = conf_path
+        self._read_config()
+        self.tagdb = NCCTagDB()
+
+    def _read_config(self):
         config = ConfigParser()
-        if not os.path.isfile(conf_path):
-            raise Exception("Couldn't open configuration file '%s'" % (conf_path,))
-        config.read(conf_path)
+        if not os.path.isfile(self.conf_path):
+            raise Exception("Couldn't open configuration file '%s'" % (self.conf_path,))
+        config.read(self.conf_path)
         es_hosts = config['elasticsearch']['hosts'].split(',')
 
-        if log is None:
-            self.logfile = config['coupler']['logfile']
-        if loglevel is None:
-            if config['coupler']['loglevel'] == 'ERROR':
-                self.loglevel = logging.ERROR
-            elif config['coupler']['loglevel'] == 'INFO':
-                self.loglevel = logging.INFO
-            elif config['coupler']['loglevel'] == 'DEBUG':
-                self.loglevel = logging.DEBUG
-            else:
-                self.loglevel = logging.WARNING
-        if lockfile is None:
-            self.lockfile = config['coupler']['lockfile']
+        self.logfile = config['coupler']['logfile']
+        if config['coupler']['loglevel'] == 'ERROR':
+            self.loglevel = logging.ERROR
+        elif config['coupler']['loglevel'] == 'INFO':
+            self.loglevel = logging.INFO
+        elif config['coupler']['loglevel'] == 'DEBUG':
+            self.loglevel = logging.DEBUG
+        else:
+            self.loglevel = logging.WARNING
+
+        try:
+            self.poll_period = int(config['coupler']['poll_period']) * 60
+        except ValueError:
+            raise Exception("Couldn't read poll_period from configuration")
 
         # Optional config options.
         try:
@@ -84,7 +95,6 @@ class Coupler:
 
         if 'jobtemplates' in config['pa'] and config['pa']['jobtemplates'].strip() != '':
             self.jobtemplates_whitelist = config['pa']['jobtemplates'].split(',')
-        self.tagdb = NCCTagDB()
 
     def _process_jobtemplate_testruns(self, jobtemplate, last_update):
         try:
@@ -142,7 +152,10 @@ class Coupler:
             return True
         return jobtemplate['type'] in self.jobtemplates_whitelist
 
-    def _index(self, force_reindex):
+    def _poll(self, force_reindex):
+        logging.info("Polling")
+        self.polling = True
+
         min_date = None
         if force_reindex is False:
             try:
@@ -169,19 +182,42 @@ class Coupler:
                 continue
             self._process_jobtemplate_testruns(jobtemplate, min_date)
 
+    def os_signal_handler(self, signum, frame):
+        "Handles process signals SIGHUP and SIGTERM"
+        if signum == signal.SIGHUP:
+            logging.info("(SIGHUP) Reloading config")
+            self._read_config()
+        elif signum == signal.SIGTERM:
+            if self.polling:
+                logging.info("(SIGTERM) Exiting at next poll")
+                self.running = False
+            else:
+                logging.info("(SIGTERM) Exiting")
+                sys.exit(0)
+
     def run(self, force_reindex=False):
-        """
-        Runs the import as configured.
-        """
+        "Starts polling PA data into Elasticsearch"
         log_format = '[%(asctime)s] %(levelname)s: %(message)s'
         logging.basicConfig(filename=self.logfile, level=self.loglevel, format=log_format)
 
-        lock = filelock.FileLock(self.lockfile, timeout=5)
-        try:
-            with lock:
-                self._index(force_reindex)
-        except filelock.Timeout:
-            logging.critical("Failed to acquire the lock file. Is a process already running?")
-            return 2
-        logging.info("Finished indexing PA data")
-        return 0
+        signal.signal(signal.SIGHUP, self.os_signal_handler)
+        signal.signal(signal.SIGTERM, self.os_signal_handler)
+
+        self.running = True
+        self.polling = False
+        count = 0
+        while self.running and count < 10:
+            count = count + 1
+            started = time.time()
+            try:
+                self._poll(force_reindex)
+            except KeyboardInterrupt:
+                logging.info("Aborting from user input")
+                return 0
+            except Exception as error:
+                logging.error(str(error))
+            self.polling = False
+            # If running was set to false, the sleep is skipped so the program can exit immediately
+            if self.running:
+                time.sleep(max(0, self.poll_period - (time.time() - started)))
+        logging.info("Done, exiting")

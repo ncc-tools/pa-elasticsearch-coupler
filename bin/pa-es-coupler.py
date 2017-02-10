@@ -15,12 +15,28 @@
 #    limitations under the License.
 
 import argparse
-import sys
+import logging
 import os
+import sys
+import signal
+import time
 from pa_elasticsearch import Coupler
 
+coupler_running = True
+reload_coupler = True
+
+def signal_handler(signum, frame):
+    "Handles unix signals"
+    if signum == signal.SIGTERM:
+        logging.info("Exiting when poll ends")
+        coupler_running = False
+    elif signum == signal.SIGHUP:
+        logging.info("Reloading config next poll")
+        reload_coupler = True
+
 def run(argv=None):
-    parser = argparse.ArgumentParser(description='Extracts PA data into ElasticSearch')
+    "Runs the program"
+    parser = argparse.ArgumentParser(description="Extracts PA data into ElasticSearch")
     parser.add_argument('--config', dest='config_path', nargs=1,
                         help="Path to the config file")
     parser.add_argument(
@@ -29,9 +45,6 @@ def run(argv=None):
     parser.add_argument(
         '--loglevel', dest='loglevel',
         help="The log level to report in the log file. Can be ERROR, WARNING or INFO")
-    parser.add_argument(
-        '--lockfile', dest='lockfile',
-        help="Path to the lock file used to prevent concurrent imports")
     parser.add_argument(
         '--full-index', action='store_true',
         help="Force a full reindex of PA data")
@@ -43,12 +56,16 @@ def run(argv=None):
     if args.config_path is not None:
         conf = os.path.realpath(args.config_path[0])
 
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    #signal.signal(signal.SIGKILL, signal_handler)
+
     try:
-        coupler = Coupler(conf, log=args.log, loglevel=args.loglevel, lockfile=args.lockfile)
-        return coupler.run(args.full_index)
+        coupler = Coupler(conf)
+        coupler.run()
     except Exception as error:
-        print(str(error))
-        return 100
+        logging.critical(str(error))
+        return 1
 
 if __name__ == '__main__':
     sys.exit(run(sys.argv))
