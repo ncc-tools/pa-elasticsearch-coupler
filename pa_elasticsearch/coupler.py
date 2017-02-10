@@ -22,7 +22,7 @@ import os.path
 import elasticsearch
 from elasticsearch import Elasticsearch
 import filelock
-from paapi import PaAuth, PaApi
+from paapi import PaAuth, PaApi, ApiQueryError
 
 from .tagdb import NCCTagDB
 
@@ -35,6 +35,7 @@ class Coupler:
     logfile = None
     loglevel = None
     lockfile = None
+    jobtemplates_whitelist = []
 
     def __init__(self, conf_path, log=None, loglevel=None, lockfile=None):
         config = ConfigParser()
@@ -65,15 +66,20 @@ class Coupler:
             self.elasticsearch = Elasticsearch(es_hosts)
 
         auth = PaAuth(username=config['pa']['username'],
-                      password=config['pa']['password'],
-                      basic_auth=config['pa']['basic_auth'])
+                      password=config['pa']['password'].strip('"'),
+                      basic_auth=config['pa']['basic_auth'].strip('"'))
         self.paapi = PaApi(auth, config['pa']['realm'])
 
+        if 'jobtemplates' in config['pa'] and config['pa']['jobtemplates'].strip() != '':
+            self.jobtemplates_whitelist = config['pa']['jobtemplates'].split(',')
         self.tagdb = NCCTagDB()
 
     def _process_jobtemplate_testruns(self, jobtemplate, last_update):
-        testruns = self.paapi.get_testruns_for_jobtemplate(jobtemplate['sref'], last_update)
-        logging.info('Importing %d testruns from Jobtemplate %d',
+        try:
+            testruns = self.paapi.get_testruns_for_jobtemplate(jobtemplate['sref'], last_update)
+        except ApiQueryError:
+            return
+        logging.info('Importing %d testruns from Jobtemplate %s',
                      len(testruns),
                      jobtemplate['sref'])
         for testrun in testruns:
@@ -86,6 +92,7 @@ class Coupler:
                                  doc_type='testrun',
                                  id=testrun['sref'],
                                  body=testrun)
+        logging.info('Indexed testrun %s', testrun['sref'])
         pageobjects = self.paapi.get_pageobjects_for_testrun(testrun['sref'])
         for pageobject in pageobjects:
             self._process_pageobject(pageobject, testrun, jobtemplate)
@@ -107,12 +114,22 @@ class Coupler:
                 )
                 pageobject['company'] = company_info[0]['name']
                 pageobject['category'] = company_info[0]['category']
+                logging.info("Retrieved Tag info for %s", pageobject['sref'])
         except Exception as error:
             logging.warning("Failed to retrieve 3rd party info for '%s'", pageobject['url'])
         self.elasticsearch.index(index='pa-objects',
                                  doc_type='pageobject',
                                  id=pageobject['sref'],
                                  body=pageobject)
+        logging.info('Indexed pageobject %s', pageobject['sref'])
+
+    def _is_jobtemplate_allowed(self, jobtemplate):
+        """
+        Checks if jobtemplate is allowed by the configured whitelist.
+        """
+        if len(self.jobtemplates_whitelist) == 0:
+            return True
+        return jobtemplate['type'] in self.jobtemplates_whitelist
 
     def _index(self, force_reindex):
         last_update = None
@@ -134,6 +151,8 @@ class Coupler:
 
         jobtemplates = self.paapi.get_all_jobtemplates()
         for jobtemplate in jobtemplates:
+            if not self._is_jobtemplate_allowed(jobtemplate):
+                continue
             self._process_jobtemplate_testruns(jobtemplate, last_update)
 
     def run(self, force_reindex=False):
