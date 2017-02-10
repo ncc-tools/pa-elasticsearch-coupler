@@ -17,6 +17,7 @@ Reads NCC Performance Analyser data and indexes it in ElasticSearch
 #    limitations under the License.
 
 from configparser import ConfigParser
+import datetime
 import logging
 import os.path
 import elasticsearch
@@ -36,6 +37,7 @@ class Coupler:
     loglevel = None
     lockfile = None
     jobtemplates_whitelist = []
+    jobtemplates_since = None
 
     def __init__(self, conf_path, log=None, loglevel=None, lockfile=None):
         config = ConfigParser()
@@ -47,10 +49,12 @@ class Coupler:
         if log is None:
             self.logfile = config['coupler']['logfile']
         if loglevel is None:
-            if config['coupler']['loglevel'] == "ERROR":
+            if config['coupler']['loglevel'] == 'ERROR':
                 self.loglevel = logging.ERROR
-            elif config['coupler']['loglevel'] == "INFO":
+            elif config['coupler']['loglevel'] == 'INFO':
                 self.loglevel = logging.INFO
+            elif config['coupler']['loglevel'] == 'DEBUG':
+                self.loglevel = logging.DEBUG
             else:
                 self.loglevel = logging.WARNING
         if lockfile is None:
@@ -69,6 +73,14 @@ class Coupler:
                       password=config['pa']['password'].strip('"'),
                       basic_auth=config['pa']['basic_auth'].strip('"'))
         self.paapi = PaApi(auth, config['pa']['realm'])
+
+        if 'since' in config['pa'] and config['pa']['since'].strip() != '':
+            try:
+                self.jobtemplates_since = datetime.datetime.strptime(
+                    config['pa']['since'],
+                    '%Y-%m-%dT%H:%M%z')
+            except ValueError:
+                raise Exception("Error: couldn't parse the pa.since configuration option")
 
         if 'jobtemplates' in config['pa'] and config['pa']['jobtemplates'].strip() != '':
             self.jobtemplates_whitelist = config['pa']['jobtemplates'].split(',')
@@ -110,8 +122,7 @@ class Coupler:
             if len(domain_info) > 0:
                 company_info = self.tagdb.get_company_info(
                     domain_info[0]['company'],
-                    domain_info[0]['product']
-                )
+                    domain_info[0]['product'])
                 pageobject['company'] = company_info[0]['name']
                 pageobject['category'] = company_info[0]['category']
                 logging.info("Retrieved Tag info for %s", pageobject['sref'])
@@ -132,7 +143,7 @@ class Coupler:
         return jobtemplate['type'] in self.jobtemplates_whitelist
 
     def _index(self, force_reindex):
-        last_update = None
+        min_date = None
         if force_reindex is False:
             try:
                 results = self.elasticsearch.search(index='pa',
@@ -141,19 +152,22 @@ class Coupler:
                                                     size=1)
                 if len(results['hits']['hits']) > 0:
                     last_index = results['hits']['hits'][0]
-                    last_update = last_index['_source']['ranAt'].replace('+00:00', 'Z')
+                    min_date = last_index['_source']['ranAt'].replace('+00:00', 'Z')
                     logging.info("Importing new data from PA")
             except elasticsearch.exceptions.NotFoundError:
                 logging.info("No existing data found. Fully indexing from PA")
-                last_update = None
-        else:
+                min_date = None
             logging.info("Fully indexing data from PA")
+
+        # If no last update could be found, then try to use the one from the config
+        if min_date is None and self.jobtemplates_since is not None:
+            min_date = self.jobtemplates_since.isoformat()
 
         jobtemplates = self.paapi.get_all_jobtemplates()
         for jobtemplate in jobtemplates:
             if not self._is_jobtemplate_allowed(jobtemplate):
                 continue
-            self._process_jobtemplate_testruns(jobtemplate, last_update)
+            self._process_jobtemplate_testruns(jobtemplate, min_date)
 
     def run(self, force_reindex=False):
         """
