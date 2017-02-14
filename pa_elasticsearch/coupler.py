@@ -56,7 +56,8 @@ class Coupler:
         config.read(self.conf_path)
         es_hosts = config['elasticsearch']['hosts'].split(',')
 
-        self.logfile = config['coupler']['logfile']
+        if 'logfile' in config['coupler'] and config['coupler']['logfile'].strip() != '':
+            self.logfile = config['coupler']['logfile']
         if config['coupler']['loglevel'] == 'ERROR':
             self.loglevel = logging.ERROR
         elif config['coupler']['loglevel'] == 'INFO':
@@ -198,7 +199,10 @@ class Coupler:
     def run(self, force_reindex=False):
         "Starts polling PA data into Elasticsearch"
         log_format = '[%(asctime)s] %(levelname)s: %(message)s'
-        logging.basicConfig(filename=self.logfile, level=self.loglevel, format=log_format)
+        if self.logfile:
+            logging.basicConfig(filename=self.logfile, level=self.loglevel, format=log_format)
+        else:
+            logging.basicConfig(level=self.loglevel, format=log_format)
 
         signal.signal(signal.SIGHUP, self.os_signal_handler)
         signal.signal(signal.SIGTERM, self.os_signal_handler)
