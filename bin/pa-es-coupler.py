@@ -34,6 +34,35 @@ def signal_handler(signum, frame):
         logging.info("Reloading config next poll")
         reload_coupler = True
 
+def create_example_config():
+    "Prints out a config example"
+    print(
+"""[coupler]
+# Leave logfile out or empty to log to stderr
+logfile = /var/log/coupler.log
+loglevel = WARNING
+lockfile = /var/lock/pa-es-coupler.lock
+# Polling period in minutes.
+poll_period = 10
+
+[elasticsearch]
+# A simple config:
+# hosts = http://localhost:9200
+
+# A more complex set up:
+# hosts = http://server1.local:9200,https://server2.local:9243
+# username = foo
+# password = bar
+
+[pa]
+username = foo
+password = "bar123!!"
+basic_auth = "abcdef1=="
+realm = 12345
+# jobtemplates = Single,Multi,Crawl,Scripted
+# Below is the only supported date format!
+# since = 2017-01-30T00:00+0000""")
+
 def run(argv=None):
     "Runs the program"
     parser = argparse.ArgumentParser(description="Extracts PA data into ElasticSearch")
@@ -48,11 +77,17 @@ def run(argv=None):
     parser.add_argument(
         '--full-index', action='store_true',
         help="Force a full reindex of PA data")
+    parser.add_argument(
+        '--example-config', action='store_true',
+        help="Outputs a sample configuration file and exits"
+    )
     args = parser.parse_args()
 
-    conf = '/etc/pa-coupler/config.ini'
-    if os.name == 'nt':
-        conf = '{0}/config.ini'.format(os.path.dirname(os.path.realpath(__file__)))
+    if args.example_config:
+        create_example_config()
+        return 0
+
+    conf = os.path.join(os.getcwd(), 'config.ini')
     if args.config_path is not None:
         conf = os.path.realpath(args.config_path[0])
 
