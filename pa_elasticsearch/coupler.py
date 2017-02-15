@@ -83,7 +83,8 @@ class Coupler:
 
         auth = PaAuth(username=config['pa']['username'],
                       password=config['pa']['password'].strip('"'),
-                      basic_auth=config['pa']['basic_auth'].strip('"'))
+                      client_username=config['pa']['client_username'].strip('"'),
+                      client_password=config['pa']['client_password'].strip('"'))
         self.paapi = PaApi(auth, config['pa']['realm'])
 
         if 'since' in config['pa'] and config['pa']['since'].strip() != '':
