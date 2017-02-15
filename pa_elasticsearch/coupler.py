@@ -76,8 +76,12 @@ class Coupler:
         try:
             es_username = config['elasticsearch']['username']
             es_password = config['elasticsearch']['password']
+            verify_certs = True
+            if 'verify_certs' in config['elasticsearch']:
+                verify_certs = not config['elasticsearch']['verify_certs'] == '0'
+            from pprint import pprint; pprint(verify_certs)
             self.elasticsearch = Elasticsearch(
-                es_hosts, http_auth=(es_username, es_password), verify_certs=False)
+                es_hosts, http_auth=(es_username, es_password), verify_certs=verify_certs)
         except KeyError:
             self.elasticsearch = Elasticsearch(es_hosts)
 
