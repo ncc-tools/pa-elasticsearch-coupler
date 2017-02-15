@@ -5,6 +5,19 @@ NCC PA Elasticsearch Coupler
 This is a little poller that will index Performance Analyser data into ElasticSearch
 so it can be filtered and reported on later.
 
+## Run with Docker
+
+You can use the Dockerfile in this repository to build an image that runs the Coupler. 
+You'll need to follow the configuration steps described below to create a config.ini file in the same directory as the Dockerfile.
+Then:
+
+```
+docker build -t pa-es-coupler .
+docker run --rm pa-es-coupler:latest
+```
+
+The destination Elasticsearch instance is expected to be running when you start the container. 
+
 ## Dependencies
 The base system needs to have Python3.5+ installed. Using virtualenv or venv is recommended.
 The following dependencies are fetched as part of the installation:
