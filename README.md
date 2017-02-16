@@ -5,19 +5,6 @@ NCC PA Elasticsearch Coupler
 This is a little poller that will index Performance Analyser data into ElasticSearch
 so it can be filtered and reported on later.
 
-## Run with Docker
-
-You can use the Dockerfile in this repository to build an image that runs the Coupler. 
-You'll need to follow the configuration steps described below to create a config.ini file in the same directory as the Dockerfile.
-Then:
-
-```
-docker build -t pa-es-coupler .
-docker run --rm pa-es-coupler:latest
-```
-
-The destination Elasticsearch instance is expected to be running when you start the container. 
-
 ## Dependencies
 The base system needs to have Python3.5+ installed. Using virtualenv or venv is recommended.
 The following dependencies are fetched as part of the installation:
@@ -28,6 +15,8 @@ The following dependencies are fetched as part of the installation:
 - ncc_paapi
 
 ## Install
+
+### System install
 
 To install the coupler system wide, follow the pypi method without
 creating a venv. Note that you may need to run `pip` as root (or with sudo).
@@ -40,13 +29,13 @@ source venv/bin/activate
 ```
 (This does not work with the fish shell).
 
-### From Pypi
+#### From Pypi
 
 ```
 pip install ncc_pa_elasticsearch
 ```
 
-### From source
+#### From source
 
 Change to the coupler's folder. Then install it like so:
 
@@ -54,14 +43,22 @@ Change to the coupler's folder. Then install it like so:
 pip install .
 ```
 
+### Docker install
+
+You can use the Dockerfile in this repository to build an image that runs the Coupler.
+You'll need to follow the configuration steps described below to create a config.ini file
+in the same directory as the Dockerfile.
+
+Then:
+
+```
+docker build -t pa-es-coupler .
+docker run --rm pa-es-coupler:latest
+```
+
+The destination Elasticsearch instance is expected to be running when you start the container.
+
 ## Configuration
 You will need to configure how to access the elasticsearch server and the PA API.
 Copy the file `config-example.ini` to `config.ini` and follow the commented
 instructions to configure access to your services.
-
-## Usage
-Add a crontab entry to run every minute (or less frequently if you want) like so:
-
-```
-* * * * * /<path-to-venv>/bin/python3 /<path-to-venv>/bin/pa-es-coupler.py --config <path-to-config>/config.ini
-```
