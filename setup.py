@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='ncc_pa_elasticsearch',
-    version='0.0.5',
+    version='0.0.6',
     description='PA to ElasticSearch coupler',
     author='NCC Group',
     packages=['pa_elasticsearch'],
@@ -15,7 +15,7 @@ setup(
     install_requires=[
         'elasticsearch==5.1.0',
         'urllib3==1.19.1',
-        'ncc_paapi==0.0.6'
+        'ncc_paapi==0.0.7'
     ],
     url='https://github.com/ncc-tools/pa-elasticsearch-coupler'
 )
