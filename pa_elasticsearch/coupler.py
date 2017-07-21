@@ -214,9 +214,7 @@ class Coupler:
 
         self.running = True
         self.polling = False
-        count = 0
-        while self.running and count < 10:
-            count = count + 1
+        while self.running:
             started = time.time()
             try:
                 self._poll(force_reindex)
