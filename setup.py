@@ -14,7 +14,7 @@ setup(
     license="Apache License 2.0",
     install_requires=[
         'elasticsearch==5.1.0',
-        'urllib3==1.19.1',
+        'urllib3==1.26.5',
         'ncc_paapi==0.0.7'
     ],
     url='https://github.com/ncc-tools/pa-elasticsearch-coupler'
